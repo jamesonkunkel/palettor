@@ -29,32 +29,35 @@ int main()
 
     start_color();
 
-    init_rgb_color(COLOR_RED, R, G, B);
-    init_pair(1, COLOR_BLACK, COLOR_RED);
+    while (1)
+    {
+        init_rgb_color(COLOR_RED, R, G, B);
+        init_pair(1, COLOR_BLACK, COLOR_RED);
 
-    int yMax, xMax;
-    getmaxyx(stdscr, yMax, xMax);
+        int yMax, xMax;
+        getmaxyx(stdscr, yMax, xMax);
 
-    WINDOW *win = newwin(yMax, xMax, 0, 0);
-    box(win, 0, 0);
+        WINDOW *win = newwin(yMax, xMax, 0, 0);
+        box(win, 0, 0);
 
-    // Create a smaller window inside the main window
-    WINDOW *preview_win = newwin(yMax / 4, xMax / 4, 1, 3);
+        // Create a smaller window inside the main window
+        WINDOW *preview_win = newwin(yMax / 4, xMax / 4, 1, 3);
 
-    // Fill the inner window with the custom color
-    wbkgd(preview_win, COLOR_PAIR(1));
-    wclear(preview_win);
+        // Fill the inner window with the custom color
+        wbkgd(preview_win, COLOR_PAIR(1));
+        wclear(preview_win);
 
-    mvwprintw(win, yMax / 3 + 1, 3, "Colour value: R=%d, G=%d, B=%d", R, G, B);
+        mvwprintw(win, yMax / 3 + 1, 3, "Colour value: R=%d, G=%d, B=%d", R, G, B);
 
-    // Draw a horizontal line across the middle of the window
-    mvwhline(win, yMax / 2, 1, 0, xMax - 2);
+        // Draw a horizontal line across the middle of the window
+        mvwhline(win, yMax / 2, 1, 0, xMax - 2);
 
-    // Refresh both windows to display the boxes
-    wrefresh(win);
-    wrefresh(preview_win);
+        // Refresh both windows to display the boxes
+        wrefresh(win);
+        wrefresh(preview_win);
+        wgetch(win);
+    }
 
-    wgetch(win);
     endwin();
     return 0;
 }
