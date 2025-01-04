@@ -9,6 +9,12 @@ void init_rgb_color(short color_number, int r, int g, int b)
     init_color(color_number, rr, gg, bb);
 }
 
+void draw_slider(WINDOW *win, int y, int x_start, int x_end, int position)
+{
+    mvwhline(win, y, x_start, 0, x_end - x_start + 1);
+    mvwaddch(win, y, x_start + position, '|');
+}
+
 int main()
 {
 
@@ -16,9 +22,12 @@ int main()
     int G = 102;
     int B = 255;
 
+    int slider_position = 10;
+
     initscr();
     noecho();
     curs_set(0);
+    keypad(stdscr, TRUE);
 
     if (has_colors() == FALSE)
     {
@@ -37,6 +46,8 @@ int main()
         int yMax, xMax;
         getmaxyx(stdscr, yMax, xMax);
 
+        int slider_max = xMax - 4;
+
         WINDOW *win = newwin(yMax, xMax, 0, 0);
         box(win, 0, 0);
 
@@ -52,10 +63,20 @@ int main()
         // Draw a horizontal line across the middle of the window
         mvwhline(win, yMax / 2, 1, 0, xMax - 2);
 
+        // Draw the slider
+        draw_slider(win, yMax - 3, 2, slider_max, slider_position);
+
         // Refresh both windows to display the boxes
         wrefresh(win);
         wrefresh(preview_win);
-        wgetch(win);
+
+        int ch = wgetch(win);
+        if (ch == 'q')
+            break; // Exit on 'q'
+        if (ch == 'a' && slider_position > 0)
+            slider_position--;
+        if (ch == 'd' && slider_position < slider_max - 2)
+            slider_position++;
     }
 
     endwin();
