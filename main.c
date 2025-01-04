@@ -8,7 +8,7 @@ void init_rgb_color(short color_number, int r, int g, int b)
     short bb = (short)(b * 1000 / 255);
     init_color(color_number, rr, gg, bb);
 }
-test;
+
 int main()
 {
 
