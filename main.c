@@ -15,6 +15,14 @@ void draw_slider(WINDOW *win, int y, int x_start, int x_end, int position)
     mvwaddch(win, y, x_start + position, '|');
 }
 
+void draw_colour_slider(WINDOW *win, int y, int x_start, int x_end, int value)
+{
+    int dx = x_end - x_start;
+    int computed_value = (int)((value / 255.0) * dx); // Perform floating-point division
+    mvwhline(win, y, x_start, 0, x_end - x_start + 1);
+    mvwaddch(win, y, x_start + computed_value, '|');
+}
+
 int main()
 {
 
@@ -22,7 +30,7 @@ int main()
     int G = 102;
     int B = 255;
 
-    int slider_position = 0;
+    int slider_position = 125;
 
     initscr();
     noecho();
@@ -60,7 +68,7 @@ int main()
 
         mvwprintw(win, yMax / 3 + 1, 3, "Colour value: R=%d, G=%d, B=%d", R, G, B);
 
-        draw_slider(win, 1, xMax / 2, slider_max, slider_position);
+        draw_colour_slider(win, 1, xMax / 2, slider_max, slider_position);
 
         // Horizontal divider
         mvwhline(win, yMax / 2, 1, 0, xMax - 2);
@@ -73,7 +81,7 @@ int main()
             break; // Exit on 'q'
         if (ch == 'a' && slider_position > 0)
             slider_position--;
-        if (ch == 'd' && slider_position < slider_max - xMax / 2)
+        if (ch == 'd' && slider_position < 255)
             slider_position++;
     }
 
