@@ -22,7 +22,7 @@ int main()
     int G = 102;
     int B = 255;
 
-    int slider_position = 10;
+    int slider_position = 0;
 
     initscr();
     noecho();
@@ -51,22 +51,20 @@ int main()
         WINDOW *win = newwin(yMax, xMax, 0, 0);
         box(win, 0, 0);
 
-        // Create a smaller window inside the main window
+        // Draw preview window of colour
         WINDOW *preview_win = newwin(yMax / 4, xMax / 4, 1, 3);
 
-        // Fill the inner window with the custom color
+        // Fill the preview window with the custom color
         wbkgd(preview_win, COLOR_PAIR(1));
         wclear(preview_win);
 
         mvwprintw(win, yMax / 3 + 1, 3, "Colour value: R=%d, G=%d, B=%d", R, G, B);
 
-        // Draw a horizontal line across the middle of the window
+        draw_slider(win, 1, xMax / 2, slider_max, slider_position);
+
+        // Horizontal divider
         mvwhline(win, yMax / 2, 1, 0, xMax - 2);
 
-        // Draw the slider
-        draw_slider(win, yMax - 3, 2, slider_max, slider_position);
-
-        // Refresh both windows to display the boxes
         wrefresh(win);
         wrefresh(preview_win);
 
@@ -75,7 +73,7 @@ int main()
             break; // Exit on 'q'
         if (ch == 'a' && slider_position > 0)
             slider_position--;
-        if (ch == 'd' && slider_position < slider_max - 2)
+        if (ch == 'd' && slider_position < slider_max - xMax / 2)
             slider_position++;
     }
 
