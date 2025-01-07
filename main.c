@@ -1,4 +1,5 @@
 #include <curses.h>
+#define MAX_INPUT 100
 
 typedef enum
 {
@@ -12,6 +13,9 @@ typedef enum
     SLIDER_R,
     SLIDER_G,
     SLIDER_B,
+    VAL_R,
+    VAL_G,
+    VAL_B,
 } Position;
 
 void init_rgb_color(short color_number, int r, int g, int b)
@@ -47,6 +51,50 @@ void draw_colour_slider(WINDOW *win, int y, int x_start, int x_end, int value, i
     }
 }
 
+void draw_colour_vals(WINDOW *win, int yMax, int pos, int R, int G, int B)
+{
+    mvwprintw(win, yMax / 3, 17, "R");
+    mvwprintw(win, yMax / 3, 21, "G");
+    mvwprintw(win, yMax / 3, 25, "B");
+
+    mvwprintw(win, yMax / 3 + 1, 3, "Colour value: ");
+
+    mvwprintw(win, yMax / 3 + 1, 17, "%d", R);
+
+    if (pos == VAL_R)
+    {
+        wattron(win, A_REVERSE);
+        mvwprintw(win, yMax / 3 + 1, 17, "%d", R);
+        wattroff(win, A_REVERSE);
+    }
+    else
+    {
+        mvwprintw(win, yMax / 3 + 1, 17, "%d", R);
+    }
+
+    if (pos == VAL_G)
+    {
+        wattron(win, A_REVERSE);
+        mvwprintw(win, yMax / 3 + 1, 21, "%d", R);
+        wattroff(win, A_REVERSE);
+    }
+    else
+    {
+        mvwprintw(win, yMax / 3 + 1, 21, "%d", R);
+    }
+
+    if (pos == VAL_B)
+    {
+        wattron(win, A_REVERSE);
+        mvwprintw(win, yMax / 3 + 1, 25, "%d", R);
+        wattroff(win, A_REVERSE);
+    }
+    else
+    {
+        mvwprintw(win, yMax / 3 + 1, 25, "%d", R);
+    }
+}
+
 int main()
 {
     Position pos = SLIDER_G;
@@ -59,6 +107,10 @@ int main()
     noecho();
     curs_set(0);
     keypad(stdscr, TRUE);
+
+    char input_buffer[MAX_INPUT] = {0};
+    int input_pos = 0;
+    bool input_mode = false;
 
     if (has_colors() == FALSE)
     {
@@ -89,8 +141,6 @@ int main()
         wbkgd(preview_win, COLOR_PAIR(1));
         wclear(preview_win);
 
-        mvwprintw(win, yMax / 3 + 1, 3, "Colour value: R=%d, G=%d, B=%d", R, G, B);
-
         mvwprintw(win, 1, xMax / 2 - 2, "R");
         mvwprintw(win, 3, xMax / 2 - 2, "G");
         mvwprintw(win, 5, xMax / 2 - 2, "B");
@@ -101,64 +151,114 @@ int main()
         // Horizontal divider
         mvwhline(win, yMax / 2, 1, 0, xMax - 2);
 
+        // Draw input field
+        if (input_mode)
+        {
+
+            mvwprintw(win, yMax - 3, 3, "-- INPUT --");
+            curs_set(1);
+            echo();
+            mvwprintw(win, yMax - 3, 15, "%-*s", MAX_INPUT, input_buffer);
+            wmove(win, yMax - 3, 10 + input_pos);
+        }
+        else
+        {
+
+            mvwprintw(win, yMax - 3, 3, "-- NORMAL --");
+            curs_set(0); // Hide cursor
+            noecho();    // Don't show typed characters
+        }
+
+        draw_colour_vals(win, yMax, pos, R, G, B);
+
         wrefresh(win);
         wrefresh(preview_win);
 
         int ch = wgetch(win);
-        if (ch == 'q')
-            break; // Exit on 'q'
-        if (ch == 'a' | ch == 'h')
+
+        if (input_mode)
         {
-            switch (pos)
+            if (ch == 27)
+            { // ESC key
+                input_mode = false;
+            }
+            else if (ch == KEY_BACKSPACE || ch == 127)
             {
-            case SLIDER_R:
-                if (R > 0)
+                if (input_pos > 0)
                 {
-                    R--;
+                    input_buffer[--input_pos] = '\0';
                 }
-                break;
-            case SLIDER_G:
-                if (G > 0)
-                {
-                    G--;
-                }
-                break;
-            case SLIDER_B:
-                if (B > 0)
-                {
-                    B--;
-                }
-                break;
+            }
+            else if (input_pos < MAX_INPUT - 1 && ch >= 32 && ch <= 126)
+            {
+                input_buffer[input_pos++] = ch;
+                input_buffer[input_pos] = '\0';
             }
         }
-        if (ch == 'd' | ch == 'l')
+        else
         {
-            switch (pos)
+            if (ch == 'q')
+                break;
+            if (ch == 'i')
             {
-            case SLIDER_R:
-                if (R < 255)
+                input_mode = true;
+            }
+            else
+            {
+                if (ch == 'a' | ch == 'h')
                 {
-                    R++;
+                    switch (pos)
+                    {
+                    case SLIDER_R:
+                        if (R > 0)
+                        {
+                            R--;
+                        }
+                        break;
+                    case SLIDER_G:
+                        if (G > 0)
+                        {
+                            G--;
+                        }
+                        break;
+                    case SLIDER_B:
+                        if (B > 0)
+                        {
+                            B--;
+                        }
+                        break;
+                    }
                 }
-                break;
-            case SLIDER_G:
-                if (G < 255)
+                if (ch == 'd' | ch == 'l')
                 {
-                    G++;
+                    switch (pos)
+                    {
+                    case SLIDER_R:
+                        if (R < 255)
+                        {
+                            R++;
+                        }
+                        break;
+                    case SLIDER_G:
+                        if (G < 255)
+                        {
+                            G++;
+                        }
+                        break;
+                    case SLIDER_B:
+                        if (B < 255)
+                        {
+                            B++;
+                        }
+                        break;
+                    }
                 }
-                break;
-            case SLIDER_B:
-                if (B < 255)
-                {
-                    B++;
-                }
-                break;
+                if ((ch == 'w' | ch == 'k') && pos > 0)
+                    pos--;
+                if ((ch == 's' | ch == 'j') && pos < 5)
+                    pos++;
             }
         }
-        if ((ch == 'w' | ch == 'k') && pos > 0)
-            pos--;
-        if ((ch == 's' | ch == 'j') && pos < 2)
-            pos++;
     }
 
     endwin();
