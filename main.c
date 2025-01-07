@@ -1,4 +1,5 @@
 #include <curses.h>
+#include <stdlib.h>
 #define MAX_INPUT 100
 
 typedef enum
@@ -75,24 +76,51 @@ void draw_colour_vals(WINDOW *win, int yMax, int pos, int R, int G, int B)
     if (pos == VAL_G)
     {
         wattron(win, A_REVERSE);
-        mvwprintw(win, yMax / 3 + 1, 21, "%d", R);
+        mvwprintw(win, yMax / 3 + 1, 21, "%d", G);
         wattroff(win, A_REVERSE);
     }
     else
     {
-        mvwprintw(win, yMax / 3 + 1, 21, "%d", R);
+        mvwprintw(win, yMax / 3 + 1, 21, "%d", G);
     }
 
     if (pos == VAL_B)
     {
         wattron(win, A_REVERSE);
-        mvwprintw(win, yMax / 3 + 1, 25, "%d", R);
+        mvwprintw(win, yMax / 3 + 1, 25, "%d", B);
         wattroff(win, A_REVERSE);
     }
     else
     {
-        mvwprintw(win, yMax / 3 + 1, 25, "%d", R);
+        mvwprintw(win, yMax / 3 + 1, 25, "%d", B);
     }
+}
+
+int is_valid_number(char input_buffer[])
+{
+    // empty string
+    if (input_buffer[0] == '\0')
+    {
+        return -1;
+    }
+
+    int pos = 0;
+    while (input_buffer[pos] != '\0')
+    {
+        if (input_buffer[pos] < '0' || input_buffer[pos] > '9')
+        {
+            return -1; // invalid character
+        }
+        pos++;
+    }
+
+    int value = atoi(input_buffer);
+    if (value < 0 || value > 255)
+    {
+        return -1;
+    }
+
+    return value;
 }
 
 int main()
@@ -189,78 +217,101 @@ int main()
                     input_buffer[--input_pos] = '\0';
                 }
             }
-            else if (input_pos < MAX_INPUT - 1 && ch >= 32 && ch <= 126)
+            else if (input_pos < MAX_INPUT - 1 && ch >= '0' && ch <= '9')
             {
                 input_buffer[input_pos++] = ch;
                 input_buffer[input_pos] = '\0';
+            }
+            else if ((pos == VAL_R || pos == VAL_G || pos == VAL_B) && ch == 10)
+            { // Enter key
+                int val = is_valid_number(input_buffer);
+                if (val != -1)
+                {
+                    switch (pos)
+                    {
+                    case VAL_R:
+                        R = val;
+                        break;
+                    case VAL_G:
+                        G = val;
+                        break;
+                    case VAL_B:
+                        B = val;
+                        break;
+                    case SLIDER_R:
+                    case SLIDER_G:
+                    case SLIDER_B:
+                    default:
+                        break;
+                    }
+                }
+                input_mode = false;
+                input_pos = 0;
+                input_buffer[0] = '\0';
             }
         }
         else
         {
             if (ch == 'q')
                 break;
-            if (ch == 'i')
-            {
+            else if (ch == 'i')
                 input_mode = true;
-            }
-            else
+            else if (ch == 'a' || ch == 'h')
             {
-                if (ch == 'a' | ch == 'h')
+                switch (pos)
                 {
-                    switch (pos)
-                    {
-                    case SLIDER_R:
-                        if (R > 0)
-                        {
-                            R--;
-                        }
-                        break;
-                    case SLIDER_G:
-                        if (G > 0)
-                        {
-                            G--;
-                        }
-                        break;
-                    case SLIDER_B:
-                        if (B > 0)
-                        {
-                            B--;
-                        }
-                        break;
-                    }
+                case SLIDER_R:
+                    if (R > 0)
+                        R--;
+                    break;
+                case SLIDER_G:
+                    if (G > 0)
+                        G--;
+                    break;
+                case SLIDER_B:
+                    if (B > 0)
+                        B--;
+                    break;
+                case VAL_R:
+                case VAL_G:
+                case VAL_B:
+                default:
+                    break;
                 }
-                if (ch == 'd' | ch == 'l')
-                {
-                    switch (pos)
-                    {
-                    case SLIDER_R:
-                        if (R < 255)
-                        {
-                            R++;
-                        }
-                        break;
-                    case SLIDER_G:
-                        if (G < 255)
-                        {
-                            G++;
-                        }
-                        break;
-                    case SLIDER_B:
-                        if (B < 255)
-                        {
-                            B++;
-                        }
-                        break;
-                    }
-                }
-                if ((ch == 'w' | ch == 'k') && pos > 0)
-                    pos--;
-                if ((ch == 's' | ch == 'j') && pos < 5)
-                    pos++;
             }
+            else if (ch == 'd' || ch == 'l')
+            {
+                switch (pos)
+                {
+                case SLIDER_R:
+                    if (R < 255)
+                        R++;
+                    break;
+                case SLIDER_G:
+                    if (G < 255)
+                        G++;
+                    break;
+                case SLIDER_B:
+                    if (B < 255)
+                        B++;
+                    break;
+                case VAL_R:
+                case VAL_G:
+                case VAL_B:
+                default:
+                    break;
+                }
+            }
+            else if ((ch == 'w' || ch == 'k') && pos > 0)
+                pos--;
+            else if ((ch == 's' || ch == 'j') && pos < 5)
+                pos++;
         }
+        wclear(win);
+        wclear(preview_win);
+        delwin(win);
+        delwin(preview_win);
     }
-
     endwin();
     return 0;
 }
