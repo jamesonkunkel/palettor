@@ -19,6 +19,12 @@ typedef enum
     VAL_B,
 } Position;
 
+typedef enum
+{
+    MODE_NORMAL,
+    MODE_INPUT
+} EditorMode;
+
 void init_rgb_color(short color_number, int r, int g, int b)
 {
     // Convert RGB values from 0-255 range to 0-1000 range
@@ -123,22 +129,146 @@ int is_valid_number(char input_buffer[])
     return value;
 }
 
+void handle_decrease(Position pos, int *R, int *G, int *B)
+{
+    switch (pos)
+    {
+    case SLIDER_R:
+        if (*R > 0)
+            (*R)--;
+        break;
+    case SLIDER_G:
+        if (*G > 0)
+            (*G)--;
+        break;
+    case SLIDER_B:
+        if (*B > 0)
+            (*B)--;
+        break;
+    case VAL_R:
+    case VAL_G:
+    case VAL_B:
+    default:
+        break;
+    }
+}
+
+void handle_increase(Position pos, int *R, int *G, int *B)
+{
+    switch (pos)
+    {
+    case SLIDER_R:
+        if (*R < 255)
+            (*R)++;
+        break;
+    case SLIDER_G:
+        if (*G < 255)
+            (*G)++;
+        break;
+    case SLIDER_B:
+        if (*B < 255)
+            (*B)++;
+        break;
+    case VAL_R:
+    case VAL_G:
+    case VAL_B:
+    default:
+        break;
+    }
+}
+
+void handle_normal_mode(int ch, Position *pos, int *R, int *G, int *B, EditorMode *editor_mode)
+{
+    switch (ch)
+    {
+    case 'q':
+        exit(0);
+    case 'i':
+        *editor_mode = MODE_INPUT;
+        break;
+    case 'a':
+    case 'h':
+        handle_decrease(*pos, R, G, B);
+        break;
+    case 'd':
+    case 'l':
+        handle_increase(*pos, R, G, B);
+        break;
+    case 'w':
+    case 'k':
+        if (*pos > 0)
+            (*pos)--;
+        break;
+    case 's':
+    case 'j':
+        if (*pos < 5)
+            (*pos)++;
+        break;
+    }
+}
+
+void handle_input_mode(char ch, char input_buffer[], int *input_pos, EditorMode *editor_mode, Position *pos, int *R, int *G, int *B)
+{
+    if (ch == 27)
+    { // ESC key
+        *editor_mode = false;
+    }
+    else if (ch == 127)
+    { // Backspace key
+        if (*input_pos > 0)
+        {
+            input_buffer[--(*input_pos)] = '\0';
+        }
+    }
+    else if (*input_pos < MAX_INPUT - 1 && ch >= '0' && ch <= '9')
+    {
+        input_buffer[(*input_pos)++] = ch;
+        input_buffer[*(input_pos)] = '\0';
+    }
+    else if ((*pos == VAL_R || *pos == VAL_G || *pos == VAL_B) && ch == 10)
+    { // Enter key
+        int val = is_valid_number(input_buffer);
+        if (val != -1)
+        {
+            switch (*pos)
+            {
+            case VAL_R:
+                *R = val;
+                break;
+            case VAL_G:
+                *G = val;
+                break;
+            case VAL_B:
+                *B = val;
+                break;
+            case SLIDER_R:
+            case SLIDER_G:
+            case SLIDER_B:
+            default:
+                break;
+            }
+        }
+        *editor_mode = MODE_NORMAL;
+        *input_pos = 0;
+        input_buffer[0] = '\0';
+    }
+}
+
 int main()
 {
     Position pos = SLIDER_G;
+    EditorMode editor_mode = MODE_NORMAL;
 
     int R = 10;
     int G = 100;
     int B = 50;
+    char input_buffer[MAX_INPUT] = {0};
+    int input_pos = 0;
 
     initscr();
     noecho();
     curs_set(0);
     keypad(stdscr, TRUE);
-
-    char input_buffer[MAX_INPUT] = {0};
-    int input_pos = 0;
-    bool input_mode = false;
 
     if (has_colors() == FALSE)
     {
@@ -180,7 +310,7 @@ int main()
         mvwhline(win, yMax / 2, 1, 0, xMax - 2);
 
         // Draw input field
-        if (input_mode)
+        if (editor_mode == MODE_INPUT)
         {
 
             mvwprintw(win, yMax - 3, 3, "-- INPUT --");
@@ -191,7 +321,6 @@ int main()
         }
         else
         {
-
             mvwprintw(win, yMax - 3, 3, "-- NORMAL --");
             curs_set(0); // Hide cursor
             noecho();    // Don't show typed characters
@@ -204,108 +333,14 @@ int main()
 
         int ch = wgetch(win);
 
-        if (input_mode)
+        // character input handling for -- NORMAL -- and -- INPUT -- mode
+        if (editor_mode == MODE_INPUT)
         {
-            if (ch == 27)
-            { // ESC key
-                input_mode = false;
-            }
-            else if (ch == KEY_BACKSPACE || ch == 127)
-            {
-                if (input_pos > 0)
-                {
-                    input_buffer[--input_pos] = '\0';
-                }
-            }
-            else if (input_pos < MAX_INPUT - 1 && ch >= '0' && ch <= '9')
-            {
-                input_buffer[input_pos++] = ch;
-                input_buffer[input_pos] = '\0';
-            }
-            else if ((pos == VAL_R || pos == VAL_G || pos == VAL_B) && ch == 10)
-            { // Enter key
-                int val = is_valid_number(input_buffer);
-                if (val != -1)
-                {
-                    switch (pos)
-                    {
-                    case VAL_R:
-                        R = val;
-                        break;
-                    case VAL_G:
-                        G = val;
-                        break;
-                    case VAL_B:
-                        B = val;
-                        break;
-                    case SLIDER_R:
-                    case SLIDER_G:
-                    case SLIDER_B:
-                    default:
-                        break;
-                    }
-                }
-                input_mode = false;
-                input_pos = 0;
-                input_buffer[0] = '\0';
-            }
+            handle_input_mode(ch, input_buffer, &input_pos, &editor_mode, &pos, &R, &G, &B);
         }
         else
         {
-            if (ch == 'q')
-                break;
-            else if (ch == 'i')
-                input_mode = true;
-            else if (ch == 'a' || ch == 'h')
-            {
-                switch (pos)
-                {
-                case SLIDER_R:
-                    if (R > 0)
-                        R--;
-                    break;
-                case SLIDER_G:
-                    if (G > 0)
-                        G--;
-                    break;
-                case SLIDER_B:
-                    if (B > 0)
-                        B--;
-                    break;
-                case VAL_R:
-                case VAL_G:
-                case VAL_B:
-                default:
-                    break;
-                }
-            }
-            else if (ch == 'd' || ch == 'l')
-            {
-                switch (pos)
-                {
-                case SLIDER_R:
-                    if (R < 255)
-                        R++;
-                    break;
-                case SLIDER_G:
-                    if (G < 255)
-                        G++;
-                    break;
-                case SLIDER_B:
-                    if (B < 255)
-                        B++;
-                    break;
-                case VAL_R:
-                case VAL_G:
-                case VAL_B:
-                default:
-                    break;
-                }
-            }
-            else if ((ch == 'w' || ch == 'k') && pos > 0)
-                pos--;
-            else if ((ch == 's' || ch == 'j') && pos < 5)
-                pos++;
+            handle_normal_mode(ch, &pos, &R, &G, &B, &editor_mode);
         }
         wclear(win);
         wclear(preview_win);
