@@ -177,12 +177,12 @@ void handle_increase(Position pos, int *R, int *G, int *B)
     }
 }
 
-void handle_normal_mode(int ch, Position *pos, int *R, int *G, int *B, EditorMode *editor_mode)
+void handle_normal_mode(int ch, Position *pos, int *R, int *G, int *B, EditorMode *editor_mode, int *running)
 {
     switch (ch)
     {
     case 'q':
-        exit(0);
+        *running = 0;
     case 'i':
         *editor_mode = MODE_INPUT;
         break;
@@ -295,6 +295,7 @@ void free_pal_boxes(int num_pal_boxes, WINDOW **pal_boxes)
 
 int main()
 {
+    int running = 1;
     Position pos = SLIDER_G;
     EditorMode editor_mode = MODE_NORMAL;
     int R = 10, G = 100, B = 50;
@@ -331,7 +332,7 @@ int main()
         return 1;
     }
 
-    while (1)
+    while (running == 1)
     {
         // Clear windows for redraw
         wclear(win);
@@ -402,7 +403,7 @@ int main()
         }
         else
         {
-            handle_normal_mode(ch, &pos, &R, &G, &B, &editor_mode);
+            handle_normal_mode(ch, &pos, &R, &G, &B, &editor_mode, &running);
         }
     }
 
