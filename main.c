@@ -254,17 +254,55 @@ void handle_input_mode(char ch, char input_buffer[], int *input_pos, EditorMode 
     }
 }
 
+// Update init_pal_boxes function
+WINDOW **init_pal_boxes(int num_pal_boxes, int yMax, int xMax)
+{
+    WINDOW **pal_boxes = malloc(num_pal_boxes * sizeof(WINDOW *));
+    if (pal_boxes == NULL)
+        return NULL;
+
+    int box_width = 5;
+    int box_height = 3;
+    int start_x = 3;
+    int start_y = yMax * 3 / 4; // Position at bottom
+
+    for (int i = 0; i < num_pal_boxes; i++)
+    {
+        pal_boxes[i] = newwin(box_height, box_width,
+                              start_y,
+                              start_x + (i * (box_width + 10)));
+        if (pal_boxes[i] == NULL)
+            return NULL;
+    }
+
+    return pal_boxes;
+}
+
+void free_pal_boxes(int num_pal_boxes, WINDOW **pal_boxes)
+{
+    if (pal_boxes == NULL)
+    {
+        return;
+    }
+
+    for (int i = 0; i < num_pal_boxes; i++)
+    {
+        delwin(pal_boxes[i]);
+    }
+
+    free(pal_boxes);
+}
+
 int main()
 {
     Position pos = SLIDER_G;
     EditorMode editor_mode = MODE_NORMAL;
-
-    int R = 10;
-    int G = 100;
-    int B = 50;
+    int R = 10, G = 100, B = 50;
     char input_buffer[MAX_INPUT] = {0};
     int input_pos = 0;
+    int num_pal_boxes = 8;
 
+    // Initialize ncurses
     initscr();
     noecho();
     curs_set(0);
@@ -279,40 +317,52 @@ int main()
 
     start_color();
 
+    int yMax, xMax;
+    getmaxyx(stdscr, yMax, xMax);
+    int slider_max = xMax - 4;
+
+    WINDOW *win = newwin(yMax, xMax, 0, 0);
+    WINDOW *preview_win = newwin(yMax / 4, xMax / 4, 1, 3);
+    WINDOW **pal_boxes = init_pal_boxes(num_pal_boxes, yMax, xMax);
+
+    if (!win || !preview_win || !pal_boxes)
+    {
+        endwin();
+        return 1;
+    }
+
     while (1)
     {
+        // Clear windows for redraw
+        wclear(win);
+        wclear(preview_win);
+        for (int i = 0; i < num_pal_boxes; i++)
+        {
+            wclear(pal_boxes[i]);
+        }
+
+        // Update colors
         init_rgb_color(COLOR_RED, R, G, B);
         init_pair(1, COLOR_BLACK, COLOR_RED);
 
-        int yMax, xMax;
-        getmaxyx(stdscr, yMax, xMax);
-
-        int slider_max = xMax - 4;
-
-        WINDOW *win = newwin(yMax, xMax, 0, 0);
+        // Draw main window content
         box(win, 0, 0);
-
-        // Draw preview window of colour
-        WINDOW *preview_win = newwin(yMax / 4, xMax / 4, 1, 3);
-
-        // Fill the preview window with the custom color
-        wbkgd(preview_win, COLOR_PAIR(1));
-        wclear(preview_win);
-
         mvwprintw(win, 1, xMax / 2 - 2, "R");
         mvwprintw(win, 3, xMax / 2 - 2, "G");
         mvwprintw(win, 5, xMax / 2 - 2, "B");
+
+        // Draw sliders
         draw_colour_slider(win, 1, xMax / 2, slider_max, R, pos, RED);
         draw_colour_slider(win, 3, xMax / 2, slider_max, G, pos, GREEN);
         draw_colour_slider(win, 5, xMax / 2, slider_max, B, pos, BLUE);
 
-        // Horizontal divider
-        mvwhline(win, yMax / 2, 1, 0, xMax - 2);
+        // Draw preview window
+        wbkgd(preview_win, COLOR_PAIR(1));
+        box(preview_win, 0, 0);
 
-        // Draw input field
+        // Draw mode indicator
         if (editor_mode == MODE_INPUT)
         {
-
             mvwprintw(win, yMax - 3, 3, "-- INPUT --");
             curs_set(1);
             echo();
@@ -322,18 +372,30 @@ int main()
         else
         {
             mvwprintw(win, yMax - 3, 3, "-- NORMAL --");
-            curs_set(0); // Hide cursor
-            noecho();    // Don't show typed characters
+            curs_set(0);
+            noecho();
         }
 
+        // Draw values and divider
         draw_colour_vals(win, yMax, pos, R, G, B);
+        mvwhline(win, yMax / 2, 1, 0, xMax - 2);
 
-        wrefresh(win);
-        wrefresh(preview_win);
+        // Refresh main windows
+        wnoutrefresh(win);
+        wnoutrefresh(preview_win);
 
+        // Update palette boxes
+        for (int i = 0; i < num_pal_boxes; i++)
+        {
+            box(pal_boxes[i], 0, 0);
+            wbkgd(pal_boxes[i], COLOR_PAIR(1));
+            wnoutrefresh(pal_boxes[i]);
+        }
+
+        doupdate();
+
+        // Handle input
         int ch = wgetch(win);
-
-        // character input handling for -- NORMAL -- and -- INPUT -- mode
         if (editor_mode == MODE_INPUT)
         {
             handle_input_mode(ch, input_buffer, &input_pos, &editor_mode, &pos, &R, &G, &B);
@@ -342,11 +404,12 @@ int main()
         {
             handle_normal_mode(ch, &pos, &R, &G, &B, &editor_mode);
         }
-        wclear(win);
-        wclear(preview_win);
-        delwin(win);
-        delwin(preview_win);
     }
+
+    // Cleanup
+    free_pal_boxes(num_pal_boxes, pal_boxes);
+    delwin(preview_win);
+    delwin(win);
     endwin();
     return 0;
 }
