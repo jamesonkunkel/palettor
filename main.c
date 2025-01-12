@@ -261,9 +261,9 @@ void handle_input_mode(char ch, char input_buffer[], int *input_pos, EditorMode 
 }
 
 // Update init_pal_boxes function
-WINDOW **init_pal_boxes(WINDOW *win, int num_pal_boxes, int yMax, int xMax)
+Pal_Box *init_pal_boxes(int num_pal_boxes, int yMax, int xMax)
 {
-    WINDOW **pal_boxes = malloc(num_pal_boxes * sizeof(WINDOW *));
+    Pal_Box *pal_boxes = malloc(num_pal_boxes * sizeof(Pal_Box));
     if (pal_boxes == NULL)
         return NULL;
 
@@ -275,19 +275,28 @@ WINDOW **init_pal_boxes(WINDOW *win, int num_pal_boxes, int yMax, int xMax)
 
     for (int i = 0; i < num_pal_boxes; i++)
     {
-        pal_boxes[i] = newwin(box_height, box_width,
-                              start_y,
-                              i * space_each + margin_x);
-        if (pal_boxes[i] == NULL)
+        WINDOW *new_win = newwin(box_height, box_width,
+                                 start_y,
+                                 i * space_each + margin_x);
+
+        if (new_win == NULL)
         {
             return NULL;
         }
+
+        Pal_Box new_box;
+        new_box.win = new_win;
+        new_box.R = 255;
+        new_box.G = 255;
+        new_box.B = 255;
+
+        pal_boxes[i] = new_box;
     }
 
     return pal_boxes;
 }
 
-void free_pal_boxes(int num_pal_boxes, WINDOW **pal_boxes)
+void free_pal_boxes(int num_pal_boxes, Pal_Box *pal_boxes)
 {
     if (pal_boxes == NULL)
     {
@@ -296,7 +305,7 @@ void free_pal_boxes(int num_pal_boxes, WINDOW **pal_boxes)
 
     for (int i = 0; i < num_pal_boxes; i++)
     {
-        delwin(pal_boxes[i]);
+        delwin(pal_boxes[i].win);
     }
 
     free(pal_boxes);
@@ -310,7 +319,7 @@ int main()
     int R = 10, G = 100, B = 50;
     char input_buffer[MAX_INPUT] = {0};
     int input_pos = 0;
-    int num_pal_boxes = 5;
+    int num_pal_boxes = 8;
 
     // Initialize ncurses
     initscr();
@@ -333,7 +342,7 @@ int main()
 
     WINDOW *win = newwin(yMax, xMax, 0, 0);
     WINDOW *preview_win = newwin(yMax / 4, xMax / 4, 1, 3);
-    WINDOW **pal_boxes = init_pal_boxes(win, num_pal_boxes, yMax, xMax);
+    Pal_Box *pal_boxes = init_pal_boxes(num_pal_boxes, yMax, xMax);
 
     if (!win || !preview_win || !pal_boxes)
     {
@@ -348,7 +357,7 @@ int main()
         wclear(preview_win);
         for (int i = 0; i < num_pal_boxes; i++)
         {
-            wclear(pal_boxes[i]);
+            wclear(pal_boxes[i].win);
         }
 
         // Update colors
@@ -396,9 +405,12 @@ int main()
         // Update palette boxes
         for (int i = 0; i < num_pal_boxes; i++)
         {
-            wbkgd(pal_boxes[i], COLOR_PAIR(1));
+            init_rgb_color(COLOR_GREEN, pal_boxes[i].R, pal_boxes[i].G, pal_boxes[i].B);
+            init_pair(2, COLOR_BLACK, COLOR_GREEN);
+
+            wbkgd(pal_boxes[i].win, COLOR_PAIR(2));
             mvwprintw(win, yMax * 3 / 4 + 4, i * ((xMax - 3) / num_pal_boxes) + 3, "col %d", i);
-            wnoutrefresh(pal_boxes[i]);
+            wnoutrefresh(pal_boxes[i].win);
         }
 
         doupdate();
