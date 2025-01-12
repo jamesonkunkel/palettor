@@ -25,6 +25,12 @@ typedef enum
     MODE_INPUT
 } EditorMode;
 
+typedef struct
+{
+    WINDOW *win;
+    int R, G, B;
+} Pal_Box;
+
 void init_rgb_color(short color_number, int r, int g, int b)
 {
     // Convert RGB values from 0-255 range to 0-1000 range
@@ -255,24 +261,27 @@ void handle_input_mode(char ch, char input_buffer[], int *input_pos, EditorMode 
 }
 
 // Update init_pal_boxes function
-WINDOW **init_pal_boxes(int num_pal_boxes, int yMax, int xMax)
+WINDOW **init_pal_boxes(WINDOW *win, int num_pal_boxes, int yMax, int xMax)
 {
     WINDOW **pal_boxes = malloc(num_pal_boxes * sizeof(WINDOW *));
     if (pal_boxes == NULL)
         return NULL;
 
-    int box_width = 5;
     int box_height = 3;
-    int start_x = 3;
-    int start_y = yMax * 3 / 4; // Position at bottom
+    int box_width = 5;
+    int start_y = yMax * 3 / 4;
+    int margin_x = 3;
+    int space_each = (xMax - 3) / num_pal_boxes;
 
     for (int i = 0; i < num_pal_boxes; i++)
     {
         pal_boxes[i] = newwin(box_height, box_width,
                               start_y,
-                              start_x + (i * (box_width + 10)));
+                              i * space_each + margin_x);
         if (pal_boxes[i] == NULL)
+        {
             return NULL;
+        }
     }
 
     return pal_boxes;
@@ -301,7 +310,7 @@ int main()
     int R = 10, G = 100, B = 50;
     char input_buffer[MAX_INPUT] = {0};
     int input_pos = 0;
-    int num_pal_boxes = 8;
+    int num_pal_boxes = 5;
 
     // Initialize ncurses
     initscr();
@@ -324,7 +333,7 @@ int main()
 
     WINDOW *win = newwin(yMax, xMax, 0, 0);
     WINDOW *preview_win = newwin(yMax / 4, xMax / 4, 1, 3);
-    WINDOW **pal_boxes = init_pal_boxes(num_pal_boxes, yMax, xMax);
+    WINDOW **pal_boxes = init_pal_boxes(win, num_pal_boxes, yMax, xMax);
 
     if (!win || !preview_win || !pal_boxes)
     {
@@ -359,7 +368,6 @@ int main()
 
         // Draw preview window
         wbkgd(preview_win, COLOR_PAIR(1));
-        box(preview_win, 0, 0);
 
         // Draw mode indicator
         if (editor_mode == MODE_INPUT)
@@ -388,8 +396,8 @@ int main()
         // Update palette boxes
         for (int i = 0; i < num_pal_boxes; i++)
         {
-            box(pal_boxes[i], 0, 0);
             wbkgd(pal_boxes[i], COLOR_PAIR(1));
+            mvwprintw(win, yMax * 3 / 4 + 4, i * ((xMax - 3) / num_pal_boxes) + 3, "col %d", i);
             wnoutrefresh(pal_boxes[i]);
         }
 
