@@ -1,6 +1,6 @@
 #include <curses.h>
 #include <stdlib.h>
-#define MAX_INPUT 100
+#define MAX_INPUT 20
 
 typedef enum
 {
@@ -218,6 +218,8 @@ void handle_input_mode(char ch, char input_buffer[], int *input_pos, EditorMode 
     if (ch == 27)
     { // ESC key
         *editor_mode = false;
+        *input_pos = 0;
+        input_buffer[0] = '\0';
     }
     else if (ch == 127)
     { // Backspace key
@@ -353,11 +355,11 @@ int main()
     while (running == 1)
     {
         // Clear windows for redraw
-        wclear(win);
-        wclear(preview_win);
+        werase(win);
+        werase(preview_win);
         for (int i = 0; i < num_pal_boxes; i++)
         {
-            wclear(pal_boxes[i].win);
+            werase(pal_boxes[i].win);
         }
 
         // Update colors
@@ -382,15 +384,13 @@ int main()
         if (editor_mode == MODE_INPUT)
         {
             mvwprintw(win, yMax - 3, 3, "-- INPUT --");
-            curs_set(1);
-            echo();
             mvwprintw(win, yMax - 3, 15, "%-*s", MAX_INPUT, input_buffer);
             wmove(win, yMax - 3, 10 + input_pos);
+            echo();
         }
         else
         {
             mvwprintw(win, yMax - 3, 3, "-- NORMAL --");
-            curs_set(0);
             noecho();
         }
 
