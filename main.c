@@ -40,6 +40,12 @@ void init_rgb_color(short color_number, int r, int g, int b)
     init_color(color_number, rr, gg, bb);
 }
 
+void draw_title(WINDOW *win, int yMax, int xMax)
+{
+    mvwhline(win, 5, 1, 0, xMax - 2);
+    mvwprintw(win, 2, xMax / 2 - 4, "Palettor");
+}
+
 void draw_slider(WINDOW *win, int y, int x_start, int x_end, int position)
 {
     mvwhline(win, y, x_start, 0, x_end - x_start + 1);
@@ -340,10 +346,10 @@ int main()
 
     int yMax, xMax;
     getmaxyx(stdscr, yMax, xMax);
-    int slider_max = xMax - 4;
+    int slider_max = xMax - 12;
 
     WINDOW *win = newwin(yMax, xMax, 0, 0);
-    WINDOW *preview_win = newwin(yMax / 4, xMax / 4, 1, 3);
+    WINDOW *preview_win = newwin(yMax / 4, xMax / 2, yMax / 2, xMax / 4);
     Pal_Box *pal_boxes = init_pal_boxes(num_pal_boxes, yMax, xMax);
 
     if (!win || !preview_win || !pal_boxes)
@@ -359,7 +365,7 @@ int main()
         werase(preview_win);
         for (int i = 0; i < num_pal_boxes; i++)
         {
-            werase(pal_boxes[i].win);
+            // werase(pal_boxes[i].win);
         }
 
         // Update colors
@@ -368,14 +374,20 @@ int main()
 
         // Draw main window content
         box(win, 0, 0);
-        mvwprintw(win, 1, xMax / 2 - 2, "R");
-        mvwprintw(win, 3, xMax / 2 - 2, "G");
-        mvwprintw(win, 5, xMax / 2 - 2, "B");
+        draw_title(win, yMax, xMax);
+        mvwprintw(win, yMax / 4, 5, "R:");
+        mvwprintw(win, yMax / 4 + 2, 5, "G:");
+        mvwprintw(win, yMax / 4 + 4, 5, "B:");
 
         // Draw sliders
-        draw_colour_slider(win, 1, xMax / 2, slider_max, R, pos, RED);
-        draw_colour_slider(win, 3, xMax / 2, slider_max, G, pos, GREEN);
-        draw_colour_slider(win, 5, xMax / 2, slider_max, B, pos, BLUE);
+        draw_colour_slider(win, yMax / 4, 8, slider_max, R, pos, RED);
+        draw_colour_slider(win, yMax / 4 + 2, 8, slider_max, G, pos, GREEN);
+        draw_colour_slider(win, yMax / 4 + 4, 8, slider_max, B, pos, BLUE);
+
+        // Draw values next to sliders
+        mvwprintw(win, yMax / 4, slider_max + 5, "%d", R);
+        mvwprintw(win, yMax / 4 + 2, slider_max + 5, "%d", G);
+        mvwprintw(win, yMax / 4 + 4, slider_max + 5, "%d", B);
 
         // Draw preview window
         wbkgd(preview_win, COLOR_PAIR(1));
@@ -395,23 +407,23 @@ int main()
         }
 
         // Draw values and divider
-        draw_colour_vals(win, yMax, pos, R, G, B);
-        mvwhline(win, yMax / 2, 1, 0, xMax - 2);
+        // draw_colour_vals(win, yMax, pos, R, G, B);
+        // mvwhline(win, yMax / 2, 1, 0, xMax - 2);
 
         // Refresh main windows
         wnoutrefresh(win);
         wnoutrefresh(preview_win);
 
         // Update palette boxes
-        for (int i = 0; i < num_pal_boxes; i++)
-        {
-            init_rgb_color(COLOR_GREEN, pal_boxes[i].R, pal_boxes[i].G, pal_boxes[i].B);
-            init_pair(2, COLOR_BLACK, COLOR_GREEN);
+        // for (int i = 0; i < num_pal_boxes; i++)
+        //{
+        //    init_rgb_color(COLOR_GREEN, pal_boxes[i].R, pal_boxes[i].G, pal_boxes[i].B);
+        //    init_pair(2, COLOR_BLACK, COLOR_GREEN);
 
-            wbkgd(pal_boxes[i].win, COLOR_PAIR(2));
-            mvwprintw(win, yMax * 3 / 4 + 4, i * ((xMax - 3) / num_pal_boxes) + 3, "col %d", i);
-            wnoutrefresh(pal_boxes[i].win);
-        }
+        //    wbkgd(pal_boxes[i].win, COLOR_PAIR(2));
+        //    mvwprintw(win, yMax * 3 / 4 + 4, i * ((xMax - 3) / num_pal_boxes) + 3, "col %d", i);
+        //    wnoutrefresh(pal_boxes[i].win);
+        //}
 
         doupdate();
 
@@ -428,9 +440,9 @@ int main()
     }
 
     // Cleanup
-    free_pal_boxes(num_pal_boxes, pal_boxes);
-    delwin(preview_win);
     delwin(win);
+    delwin(preview_win);
+    // free_pal_boxes(num_pal_boxes, pal_boxes);
     endwin();
     return 0;
 }
