@@ -160,7 +160,7 @@ void handle_increase(Position pos, int *R, int *G, int *B)
     }
 }
 
-void handle_normal_mode(int ch, Position *pos, int *R, int *G, int *B, EditorMode *editor_mode, int *running, int num_pal_boxes)
+void handle_normal_mode(int ch, Position *pos, int *R, int *G, int *B, EditorMode *editor_mode, int *running, int num_pal_boxes, Pal_Box *pal_boxes)
 {
     // the last up to 8 positions should be for the palette, first three will be the sliders
     int max_pos_count = 3 + num_pal_boxes - 1;
@@ -188,6 +188,15 @@ void handle_normal_mode(int ch, Position *pos, int *R, int *G, int *B, EditorMod
     case 'j':
         if (*pos < max_pos_count)
             (*pos)++;
+        break;
+    case 'g':
+        if (*pos >= PAL_BOX_0 && *pos <= PAL_BOX_7)
+        {
+            int box_index = *pos - PAL_BOX_0; // Convert position to array index
+            pal_boxes[box_index].R = *R;
+            pal_boxes[box_index].G = *G;
+            pal_boxes[box_index].B = *B;
+        }
         break;
     }
 }
@@ -262,11 +271,12 @@ Pal_Box *init_pal_boxes(int num_pal_boxes, int yMax, int xMax)
             return NULL;
         }
 
+        int grey_value = (i * 255) / (num_pal_boxes - 1);
         Pal_Box new_box;
         new_box.win = new_win;
-        new_box.R = 255;
-        new_box.G = 255;
-        new_box.B = 255;
+        new_box.R = grey_value;
+        new_box.G = grey_value;
+        new_box.B = grey_value;
 
         pal_boxes[i] = new_box;
     }
@@ -293,15 +303,20 @@ void draw_pal_boxes(WINDOW *win, int yMax, int xMax, int num_pal_boxes, Pal_Box 
 {
     for (int i = 0; i < num_pal_boxes; i++)
     {
-        init_rgb_color(COLOR_GREEN, pal_boxes[i].R, pal_boxes[i].G, pal_boxes[i].B);
-        init_pair(2, COLOR_BLACK, COLOR_GREEN);
+        // Allocate unique color index and pair for each palette box
+        int color_index = 100 + i; // The import bit is here, you can't just reuse the same colour index (ex: COLOR_GREEN) because the paint will use the last assigned value duhhh
+        int color_pair_index = i + 2;
 
+        init_rgb_color(color_index, pal_boxes[i].R, pal_boxes[i].G, pal_boxes[i].B);
+        init_pair(color_pair_index, COLOR_BLACK, color_index);
+
+        // Highlight the selected palette box
         if (i + 3 == pos)
         {
             wattron(win, A_REVERSE);
         }
 
-        wbkgd(pal_boxes[i].win, COLOR_PAIR(2));
+        wbkgd(pal_boxes[i].win, COLOR_PAIR(color_pair_index));
         mvwprintw(win, yMax * 3 / 4 + 4, i * ((xMax - 3) / num_pal_boxes) + 5, "col %d", i);
         wattroff(win, A_REVERSE);
         wnoutrefresh(pal_boxes[i].win);
@@ -313,7 +328,7 @@ int main()
     int running = 1;
     Position pos = SLIDER_G;
     EditorMode editor_mode = MODE_NORMAL;
-    int R = 10, G = 100, B = 50;
+    int R = 100, G = 100, B = 100;
     char input_buffer[MAX_INPUT] = {0};
     int input_pos = 0;
     int num_pal_boxes = 8;
@@ -378,6 +393,8 @@ int main()
         mvwprintw(win, yMax / 6 + 2, slider_max + 5, "%d", G);
         mvwprintw(win, yMax / 6 + 4, slider_max + 5, "%d", B);
 
+        // mvwprintw(win, 2, 2, "%d", pos);
+
         // Draw preview window
         wbkgd(preview_win, COLOR_PAIR(1));
 
@@ -414,7 +431,7 @@ int main()
         }
         else
         {
-            handle_normal_mode(ch, &pos, &R, &G, &B, &editor_mode, &running, num_pal_boxes);
+            handle_normal_mode(ch, &pos, &R, &G, &B, &editor_mode, &running, num_pal_boxes, pal_boxes);
         }
     }
 
