@@ -1,5 +1,11 @@
+#include <pwd.h>
+#include <unistd.h>
+#include <string.h>
+#include <errno.h>
 #include <curses.h>
 #include <stdlib.h>
+#include <json-c/json.h>
+
 #define MAX_INPUT 20
 
 typedef enum
@@ -45,7 +51,7 @@ void init_rgb_color(short color_number, int r, int g, int b)
     init_color(color_number, rr, gg, bb);
 }
 
-void draw_title(WINDOW *win, int yMax, int xMax)
+void draw_title(WINDOW *win, int xMax)
 {
     mvwhline(win, 4, 1, 0, xMax - 2);
     mvwprintw(win, 2, xMax / 2 - 4, "Palettor");
@@ -63,7 +69,7 @@ void draw_colour_slider(WINDOW *win, int y, int x_start, int x_end, int value, i
     int computed_value = (int)((value / 255.0) * dx); // Perform floating-point division
     mvwhline(win, y, x_start, 0, x_end - x_start + 1);
 
-    if (col == pos)
+    if ((int)col == pos)
     {
         wattron(win, A_REVERSE);
         mvwaddch(win, y, x_start + computed_value, '|');
@@ -160,7 +166,47 @@ void handle_increase(Position pos, int *R, int *G, int *B)
     }
 }
 
-void handle_normal_mode(int ch, Position *pos, int *R, int *G, int *B, EditorMode *editor_mode, int *running, int num_pal_boxes, Pal_Box *pal_boxes)
+// Save palette to JSON
+// TODO make a status message that displays for some time, success writing, failure to write etc;
+void save_palette(Pal_Box *pal_boxes, int num_boxes, const char *filename)
+{
+    struct json_object *root = json_object_new_array();
+
+    for (int i = 0; i < num_boxes; i++)
+    {
+        struct json_object *box = json_object_new_object();
+        json_object_object_add(box, "R", json_object_new_int(pal_boxes[i].R));
+        json_object_object_add(box, "G", json_object_new_int(pal_boxes[i].G));
+        json_object_object_add(box, "B", json_object_new_int(pal_boxes[i].B));
+        json_object_array_add(root, box);
+    }
+
+    const char *json_string = json_object_to_json_string_ext(root, JSON_C_TO_STRING_PRETTY);
+    FILE *f = fopen(filename, "w");
+    if (!f)
+    {
+        // these message disappear way too fast
+        mvprintw(0, 0, "Error opening file: %s", strerror(errno));
+        refresh();
+        return;
+    }
+
+    if (fputs(json_string, f) == EOF)
+    {
+        mvprintw(0, 0, "Error writing to file");
+        refresh();
+    }
+    else
+    {
+        mvprintw(0, 0, "Saved to %s", filename);
+        refresh();
+    }
+
+    fclose(f);
+    json_object_put(root);
+}
+
+void handle_normal_mode(int ch, Position *pos, int *R, int *G, int *B, EditorMode *editor_mode, int *running, int num_pal_boxes, Pal_Box *pal_boxes, char *file_name)
 {
     // the last up to 8 positions should be for the palette, first three will be the sliders
     int max_pos_count = 3 + num_pal_boxes - 1;
@@ -186,7 +232,7 @@ void handle_normal_mode(int ch, Position *pos, int *R, int *G, int *B, EditorMod
         break;
     case 's':
     case 'j':
-        if (*pos < max_pos_count)
+        if ((int)*pos < max_pos_count)
             (*pos)++;
         break;
     case 'g':
@@ -197,6 +243,9 @@ void handle_normal_mode(int ch, Position *pos, int *R, int *G, int *B, EditorMod
             pal_boxes[box_index].G = *G;
             pal_boxes[box_index].B = *B;
         }
+        break;
+    case 'm':
+        save_palette(pal_boxes, num_pal_boxes, file_name);
         break;
     }
 }
@@ -311,7 +360,7 @@ void draw_pal_boxes(WINDOW *win, int yMax, int xMax, int num_pal_boxes, Pal_Box 
         init_pair(color_pair_index, COLOR_BLACK, color_index);
 
         // Highlight the selected palette box
-        if (i + 3 == pos)
+        if (i + 3 == (int)pos)
         {
             wattron(win, A_REVERSE);
         }
@@ -323,6 +372,26 @@ void draw_pal_boxes(WINDOW *win, int yMax, int xMax, int num_pal_boxes, Pal_Box 
     }
 }
 
+char *get_absolute_path(void)
+{
+    // Get home directory
+    const char *home = getenv("HOME");
+    if (!home)
+    {
+        struct passwd *pw = getpwuid(getuid());
+        if (pw)
+            home = pw->pw_dir;
+    }
+
+    // Construct full path
+    char *full_path = malloc(strlen(home) + strlen("/Documents/p.json") + 1);
+    if (!full_path)
+        return NULL;
+
+    sprintf(full_path, "%s/Documents/p.json", home);
+    return full_path;
+}
+
 int main()
 {
     int running = 1;
@@ -332,6 +401,14 @@ int main()
     char input_buffer[MAX_INPUT] = {0};
     int input_pos = 0;
     int num_pal_boxes = 8;
+
+    char *file_path = get_absolute_path();
+    if (!file_path)
+    {
+        endwin();
+        fprintf(stderr, "Could not create file path\n");
+        return 1;
+    }
 
     // Initialize ncurses
     initscr();
@@ -378,7 +455,7 @@ int main()
 
         // Draw main window content
         box(win, 0, 0);
-        draw_title(win, yMax, xMax);
+        draw_title(win, xMax);
         mvwprintw(win, yMax / 6, 5, "R:");
         mvwprintw(win, yMax / 6 + 2, 5, "G:");
         mvwprintw(win, yMax / 6 + 4, 5, "B:");
@@ -412,10 +489,6 @@ int main()
             noecho();
         }
 
-        // Draw values and divider
-        // draw_colour_vals(win, yMax, pos, R, G, B);
-        // mvwhline(win, yMax / 2, 1, 0, xMax - 2);
-
         // Refresh main windows
         wnoutrefresh(win);
         wnoutrefresh(preview_win);
@@ -431,7 +504,7 @@ int main()
         }
         else
         {
-            handle_normal_mode(ch, &pos, &R, &G, &B, &editor_mode, &running, num_pal_boxes, pal_boxes);
+            handle_normal_mode(ch, &pos, &R, &G, &B, &editor_mode, &running, num_pal_boxes, pal_boxes, file_path);
         }
     }
 
@@ -439,6 +512,7 @@ int main()
     delwin(win);
     delwin(preview_win);
     free_pal_boxes(num_pal_boxes, pal_boxes);
+    free(file_path);
     endwin();
     return 0;
 }

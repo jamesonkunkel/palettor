@@ -1,8 +1,18 @@
 CC = gcc
-CFLAGS = -lncurses
+CFLAGS = -Wall -Wextra -I/opt/homebrew/include
+LDFLAGS = -L/opt/homebrew/lib -lcurses -ljson-c
 
-main: main.c
-	$(CC) main.c -o main $(CFLAGS)
+TARGET = main
+SRC = main.c
+OBJ = $(SRC:.c=.o)
+
+$(TARGET): $(OBJ)
+	$(CC) $(OBJ) -o $(TARGET) $(LDFLAGS)
+
+%.o: %.c
+	$(CC) $(CFLAGS) -c $< -o $@
 
 clean:
-	rm -f main
+	rm -f $(OBJ) $(TARGET)
+
+.PHONY: clean
