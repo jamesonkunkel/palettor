@@ -6,7 +6,7 @@
 #include <stdlib.h>
 #include <json-c/json.h>
 
-#define MAX_INPUT 20
+#define MAX_INPUT 100
 
 typedef enum
 {
@@ -235,7 +235,7 @@ void handle_normal_mode(int ch, Position *pos, int *R, int *G, int *B, EditorMod
         if ((int)*pos < max_pos_count)
             (*pos)++;
         break;
-    case 'g':
+    case 'p':
         if (*pos >= PAL_BOX_0 && *pos <= PAL_BOX_7)
         {
             int box_index = *pos - PAL_BOX_0; // Convert position to array index
@@ -244,36 +244,61 @@ void handle_normal_mode(int ch, Position *pos, int *R, int *G, int *B, EditorMod
             pal_boxes[box_index].B = *B;
         }
         break;
+    case 'y':
+        if (*pos >= PAL_BOX_0 && *pos <= PAL_BOX_7)
+        {
+            int box_index = *pos - PAL_BOX_0; // Convert position to array index
+            *R = pal_boxes[box_index].R;
+            *G = pal_boxes[box_index].G;
+            *B = pal_boxes[box_index].B;
+        }
+        break;
     case 'm':
         save_palette(pal_boxes, num_pal_boxes, file_name);
         break;
     }
 }
 
-void handle_input_mode(char ch, char input_buffer[], int *input_pos, EditorMode *editor_mode, Position *pos, int *R, int *G, int *B)
+void handle_input_buffer(Pal_Box *pal_boxes, int num_boxes, char input_buffer[])
 {
-    if (ch == 27)
-    { // ESC key
+    // case where we see save path/to/save/name.json
+    char *save_prefix = "save ";
+    int res = strncmp(save_prefix, input_buffer, 5);
+
+    if (res == 0)
+    {
+        char *file_path = input_buffer + 5;
+        save_palette(pal_boxes, num_boxes, file_path);
+    }
+}
+
+void handle_input_mode(char ch, char input_buffer[], int *input_pos, EditorMode *editor_mode, Position *pos, int *R, int *G, int *B, Pal_Box *pal_boxes, int num_pal_boxes)
+{
+    if (ch == 27) // ESC key
+    {
         *editor_mode = false;
         *input_pos = 0;
         input_buffer[0] = '\0';
     }
-    else if (ch == 127)
-    { // Backspace key
+    else if (ch == 127) // Backspace key
+    {
         if (*input_pos > 0)
         {
             input_buffer[--(*input_pos)] = '\0';
         }
     }
-    else if (*input_pos < MAX_INPUT - 1 && ch >= '0' && ch <= '9')
+    else if (*input_pos < MAX_INPUT - 1 && ch != 10) // Ensure we don't add enters to the buffer
     {
         input_buffer[(*input_pos)++] = ch;
         input_buffer[*(input_pos)] = '\0';
     }
-    else if ((*pos == SLIDER_R || *pos == SLIDER_G || *pos == SLIDER_B) && ch == 10)
-    { // Enter key
+    else if (ch == 10) // Enter key
+    {
+
         int val = is_valid_number(input_buffer);
-        if (val != -1)
+
+        // Case where the user has inputed a number and we are on sliders
+        if ((*pos == SLIDER_R || *pos == SLIDER_G || *pos == SLIDER_B) && val != -1)
         {
             switch (*pos)
             {
@@ -290,6 +315,12 @@ void handle_input_mode(char ch, char input_buffer[], int *input_pos, EditorMode 
                 break;
             }
         }
+        else
+        {
+            handle_input_buffer(pal_boxes, num_pal_boxes, input_buffer);
+        }
+
+        // Alaways exit input mode at the end of a command
         *editor_mode = MODE_NORMAL;
         *input_pos = 0;
         input_buffer[0] = '\0';
@@ -500,7 +531,7 @@ int main()
         int ch = wgetch(win);
         if (editor_mode == MODE_INPUT)
         {
-            handle_input_mode(ch, input_buffer, &input_pos, &editor_mode, &pos, &R, &G, &B);
+            handle_input_mode(ch, input_buffer, &input_pos, &editor_mode, &pos, &R, &G, &B, pal_boxes, num_pal_boxes);
         }
         else
         {
