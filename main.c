@@ -425,13 +425,23 @@ char *get_absolute_path(void)
 
 int main()
 {
+    // whether the app is running
     int running = 1;
+
+    // the position and editor mode of the user
     Position pos = SLIDER_G;
     EditorMode editor_mode = MODE_NORMAL;
+
+    // the state for the colour you can actually change around and the number of pal boxes (TODO make this changeable)
     int R = 100, G = 100, B = 100;
+    int num_pal_boxes = 8;
+
+    // buffer and position for user input
     char input_buffer[MAX_INPUT] = {0};
     int input_pos = 0;
-    int num_pal_boxes = 8;
+
+    // buffer for message (eg saving, error, etc;)
+    char *message_buffer = "Your message here.";
 
     char *file_path = get_absolute_path();
     if (!file_path)
@@ -477,7 +487,7 @@ int main()
         werase(preview_win);
         for (int i = 0; i < num_pal_boxes; i++)
         {
-            // werase(pal_boxes[i].win);
+            werase(pal_boxes[i].win);
         }
 
         // Update colors
@@ -500,8 +510,6 @@ int main()
         mvwprintw(win, yMax / 6, slider_max + 5, "%d", R);
         mvwprintw(win, yMax / 6 + 2, slider_max + 5, "%d", G);
         mvwprintw(win, yMax / 6 + 4, slider_max + 5, "%d", B);
-
-        // mvwprintw(win, 2, 2, "%d", pos);
 
         // Draw preview window
         wbkgd(preview_win, COLOR_PAIR(1));
