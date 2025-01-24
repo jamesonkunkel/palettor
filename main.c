@@ -7,6 +7,7 @@
 #include <json-c/json.h>
 
 #define MAX_INPUT 100
+#define MAX_STATUS_LEN 256
 
 typedef enum
 {
@@ -42,6 +43,15 @@ typedef struct
     int R, G, B;
 } Pal_Box;
 
+// buffer for message (eg saving, error, etc;)
+char status_buffer[MAX_STATUS_LEN] = {0};
+
+void set_status(const char *message)
+{
+    strncpy(status_buffer, message, MAX_STATUS_LEN - 1);
+    status_buffer[MAX_STATUS_LEN - 1] = '\0'; // Ensure null termination
+}
+
 void init_rgb_color(short color_number, int r, int g, int b)
 {
     // Convert RGB values from 0-255 range to 0-1000 range
@@ -51,10 +61,10 @@ void init_rgb_color(short color_number, int r, int g, int b)
     init_color(color_number, rr, gg, bb);
 }
 
-void draw_title(WINDOW *win, int xMax)
+void draw_title(WINDOW *win, int x_max)
 {
-    mvwhline(win, 4, 1, 0, xMax - 2);
-    mvwprintw(win, 2, xMax / 2 - 4, "Palettor");
+    mvwhline(win, 4, 1, 0, x_max - 2);
+    mvwprintw(win, 2, x_max / 2 - 4, "Palettor");
 }
 
 void draw_slider(WINDOW *win, int y, int x_start, int x_end, int position)
@@ -185,9 +195,8 @@ void save_palette(Pal_Box *pal_boxes, int num_boxes, const char *filename)
     FILE *f = fopen(filename, "w");
     if (!f)
     {
-        // these message disappear way too fast
-        mvprintw(0, 0, "Error opening file: %s", strerror(errno));
-        refresh();
+        // these message disappear way too fastset_status
+        set_status("Error writing file.");
         return;
     }
 
@@ -198,7 +207,7 @@ void save_palette(Pal_Box *pal_boxes, int num_boxes, const char *filename)
     }
     else
     {
-        mvprintw(0, 0, "Saved to %s", filename);
+        set_status("Saved file.");
         refresh();
     }
 
@@ -328,7 +337,7 @@ void handle_input_mode(char ch, char input_buffer[], int *input_pos, EditorMode 
 }
 
 // Update init_pal_boxes function
-Pal_Box *init_pal_boxes(int num_pal_boxes, int yMax, int xMax)
+Pal_Box *init_pal_boxes(int num_pal_boxes, int y_max, int x_max)
 {
     Pal_Box *pal_boxes = malloc(num_pal_boxes * sizeof(Pal_Box));
     if (pal_boxes == NULL)
@@ -336,9 +345,9 @@ Pal_Box *init_pal_boxes(int num_pal_boxes, int yMax, int xMax)
 
     int box_height = 3;
     int box_width = 5;
-    int start_y = yMax * 3 / 4;
+    int start_y = y_max * 3 / 4;
     int margin_x = 5;
-    int space_each = (xMax - 3) / num_pal_boxes;
+    int space_each = (x_max - 3) / num_pal_boxes;
 
     for (int i = 0; i < num_pal_boxes; i++)
     {
@@ -379,7 +388,7 @@ void free_pal_boxes(int num_pal_boxes, Pal_Box *pal_boxes)
     free(pal_boxes);
 }
 
-void draw_pal_boxes(WINDOW *win, int yMax, int xMax, int num_pal_boxes, Pal_Box *pal_boxes, Position pos)
+void draw_pal_boxes(WINDOW *win, int y_max, int x_max, int num_pal_boxes, Pal_Box *pal_boxes, Position pos)
 {
     for (int i = 0; i < num_pal_boxes; i++)
     {
@@ -397,7 +406,7 @@ void draw_pal_boxes(WINDOW *win, int yMax, int xMax, int num_pal_boxes, Pal_Box 
         }
 
         wbkgd(pal_boxes[i].win, COLOR_PAIR(color_pair_index));
-        mvwprintw(win, yMax * 3 / 4 + 4, i * ((xMax - 3) / num_pal_boxes) + 5, "col %d", i);
+        mvwprintw(win, y_max * 3 / 4 + 4, i * ((x_max - 3) / num_pal_boxes) + 5, "col %d", i);
         wattroff(win, A_REVERSE);
         wnoutrefresh(pal_boxes[i].win);
     }
@@ -423,6 +432,29 @@ char *get_absolute_path(void)
     return full_path;
 }
 
+int find_str_buf_len(char *buf)
+{
+    int pos = 0;
+
+    while (buf[pos] != '\0')
+    {
+
+        pos++;
+    }
+    return pos;
+}
+
+void draw_status(WINDOW *win, int y_max, int x_max, char *status_message)
+{
+    int size = find_str_buf_len(status_message);
+
+    init_pair(10, COLOR_WHITE, COLOR_BLACK);
+
+    wattron(win, COLOR_PAIR(10) | A_BOLD | A_REVERSE);
+    mvwprintw(win, y_max - 3, x_max - 3 - size, status_message);
+    wattroff(win, COLOR_PAIR(10) | A_BOLD | A_REVERSE);
+}
+
 int main()
 {
     // whether the app is running
@@ -439,9 +471,6 @@ int main()
     // buffer and position for user input
     char input_buffer[MAX_INPUT] = {0};
     int input_pos = 0;
-
-    // buffer for message (eg saving, error, etc;)
-    char *message_buffer = "Your message here.";
 
     char *file_path = get_absolute_path();
     if (!file_path)
@@ -466,13 +495,13 @@ int main()
 
     start_color();
 
-    int yMax, xMax;
-    getmaxyx(stdscr, yMax, xMax);
-    int slider_max = xMax - 12;
+    int y_max, x_max;
+    getmaxyx(stdscr, y_max, x_max);
+    int slider_max = x_max - 12;
 
-    WINDOW *win = newwin(yMax, xMax, 0, 0);
-    WINDOW *preview_win = newwin(yMax / 6, xMax / 2, yMax * 1 / 2, xMax / 4);
-    Pal_Box *pal_boxes = init_pal_boxes(num_pal_boxes, yMax, xMax);
+    WINDOW *win = newwin(y_max, x_max, 0, 0);
+    WINDOW *preview_win = newwin(y_max / 6, x_max / 2, y_max * 1 / 2, x_max / 4);
+    Pal_Box *pal_boxes = init_pal_boxes(num_pal_boxes, y_max, x_max);
 
     if (!win || !preview_win || !pal_boxes)
     {
@@ -496,20 +525,20 @@ int main()
 
         // Draw main window content
         box(win, 0, 0);
-        draw_title(win, xMax);
-        mvwprintw(win, yMax / 6, 5, "R:");
-        mvwprintw(win, yMax / 6 + 2, 5, "G:");
-        mvwprintw(win, yMax / 6 + 4, 5, "B:");
+        draw_title(win, x_max);
+        mvwprintw(win, y_max / 6, 5, "R:");
+        mvwprintw(win, y_max / 6 + 2, 5, "G:");
+        mvwprintw(win, y_max / 6 + 4, 5, "B:");
 
         // Draw sliders
-        draw_colour_slider(win, yMax / 6, 8, slider_max, R, pos, RED);
-        draw_colour_slider(win, yMax / 6 + 2, 8, slider_max, G, pos, GREEN);
-        draw_colour_slider(win, yMax / 6 + 4, 8, slider_max, B, pos, BLUE);
+        draw_colour_slider(win, y_max / 6, 8, slider_max, R, pos, RED);
+        draw_colour_slider(win, y_max / 6 + 2, 8, slider_max, G, pos, GREEN);
+        draw_colour_slider(win, y_max / 6 + 4, 8, slider_max, B, pos, BLUE);
 
         // Draw values next to sliders
-        mvwprintw(win, yMax / 6, slider_max + 5, "%d", R);
-        mvwprintw(win, yMax / 6 + 2, slider_max + 5, "%d", G);
-        mvwprintw(win, yMax / 6 + 4, slider_max + 5, "%d", B);
+        mvwprintw(win, y_max / 6, slider_max + 5, "%d", R);
+        mvwprintw(win, y_max / 6 + 2, slider_max + 5, "%d", G);
+        mvwprintw(win, y_max / 6 + 4, slider_max + 5, "%d", B);
 
         // Draw preview window
         wbkgd(preview_win, COLOR_PAIR(1));
@@ -517,22 +546,24 @@ int main()
         // Draw mode indicator
         if (editor_mode == MODE_INPUT)
         {
-            mvwprintw(win, yMax - 3, 3, "-- INPUT --");
-            mvwprintw(win, yMax - 3, 15, "%-*s", MAX_INPUT, input_buffer);
-            wmove(win, yMax - 3, 10 + input_pos);
+            mvwprintw(win, y_max - 3, 3, "-- INPUT --");
+            mvwprintw(win, y_max - 3, 15, "%-*s", MAX_INPUT, input_buffer);
+            wmove(win, y_max - 3, 10 + input_pos);
             echo();
         }
         else
         {
-            mvwprintw(win, yMax - 3, 3, "-- NORMAL --");
+            mvwprintw(win, y_max - 3, 3, "-- NORMAL --");
             noecho();
         }
+
+        draw_status(win, y_max, x_max, status_buffer);
 
         // Refresh main windows
         wnoutrefresh(win);
         wnoutrefresh(preview_win);
 
-        draw_pal_boxes(win, yMax, xMax, num_pal_boxes, pal_boxes, pos);
+        draw_pal_boxes(win, y_max, x_max, num_pal_boxes, pal_boxes, pos);
         doupdate();
 
         // Handle input
